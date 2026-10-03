@@ -9,6 +9,8 @@
 
 This repository exists to support users with Vulkan capable GPUs that don't meet the requirements of current upstream builds. The goal: make sure everyone benefits from the performance of DXVK, even on slightly older hardware. That means creating or backporting QoL patches, fixes, and per-game configurations from the latest versions to the 1.10.x branch and a little more on top.
 
+Most of that works on your GPU by marking Vulkan extensions as optional, even where DXVK needs them, so a missing one shows up as a glitch instead of an error (see [Degraded Features](#degraded-features)). On top of that, DXVK-Sarek is meant for discontinued, legacy and half-baked drivers, so even one that supports everything can have bugs of its own. Sometimes I'll find a workaround and add it, sometimes I won't: I only have a small amount of hardware to test and debug on.
+
 The project is officially supported on [proton-cachyos](https://github.com/CachyOS/proton-cachyos). To enable it there, add this to your launch options:
 
 ```
@@ -27,7 +29,7 @@ A huge thank-you to the following contributors for their invaluable help:
 ## Table of Contents
 
 - [Proton-Sarek: discontinued](#proton-sarek-discontinued)
-- [ARM Emulation & Mobile GPUs](#arm-emulation--mobile-gpus-box64-fex-mali-adreno)
+- [ARM, Mobile GPUs & macOS](#arm-mobile-gpus--macos)
 - [Degraded Features](#degraded-features)
 - [How to Use](#how-to-use)
 - [Build Instructions](#build-instructions)
@@ -53,17 +55,29 @@ Every change I made here had a reason, and dropping Proton-Sarek frees me up to 
 
 That said, this is not a blanket "no" to other Proton builds. If Valve, GE, or anyone else wants to ship DXVK-Sarek in their releases, they'll have my full support on the DXVK-Sarek side of any issues that come up. I just wanted to drop the Proton part personally. For now, **Proton-CachyOS is the only officially supported way to use DXVK-Sarek with Proton.**
 
-## ARM Emulation & Mobile GPUs (Box64, FEX, Mali, Adreno)
+## ARM, Mobile GPUs & macOS
+
+Devices I let DXVK-Sarek run on, without touching x86 desktops.
+
+### ARM Emulation & Mobile GPUs (Box64, FEX, Mali, Adreno)
 
 DXVK-Sarek includes fixes that allow the project to run on mobile and ARM translation layers (Box64, FEX, Android PC emulators, etc.).
 
 - Certain Vulkan extensions have been made optional so the project can run on Mali GPUs.
-- @zeyadadev fixed a Mali GPU black screen caused by unbound texture optimization (#36) thanks pal.
+- [@zeyadadev](https://github.com/zeyadadev) fixed a Mali GPU black screen caused by unbound texture optimization (#36) thanks pal.
 
 > [!WARNING]
 > **Important Note for Mobile GPU Users.** I am not against marking some Vulkan extensions as optional to make certain GPUs run DXVK-Sarek. But please understand that even if it runs now, the experience will most likely not be ideal. You might encounter visual bugs or stuttering. If you run into issues on a GPU that was allowed to run it this way (Adreno and Mali), check on other Vulkan-compatible hardware before reporting the issue, as it's more likely related to your Vulkan drivers.
 >
 > **If you are using a Mali GPU, do not report issues related to performance or visual artifacts.** These problems are almost certainly caused by the GPU's lack of support for critical Vulkan extensions. While I have made efforts to allow Mali GPUs to run the project, I cannot provide fixes or support for these devices.
+
+### macOS (MoltenVK)
+
+D3D9 samplers declare several image types at one binding. Metal can't express that, so on MoltenVK nothing gets drawn. `d3d9.splitSamplerSlots` gives each one its own binding: `Auto` turns it on only on MoltenVK, `True` forces it anywhere for testing, `False` brings the black screen back.
+
+I saw this fix in [Gcenx/DXVK-macOS#20](https://github.com/Gcenx/DXVK-macOS/pull/20) and decided to do my own implementation. The original idea is from [@MiloszP](https://github.com/MiloszP), although our work is different, thanks pal.
+
+Wine also has to get Vulkan output on screen on macOS. If the game runs but the window stays black with no shader errors in the log, check your Wine build first.
 
 **For developers and contributors:** my only rule is that Mali / other-device fixes don't affect other devices. That way you don't have to worry too much about what upstream does, and I don't have to manually cherry-pick patches from your fork. If you're alright with it, just open PRs against the repo once you think things are ready. If not, that's fine too I wanted to extend the offer, since contributing upstream means the fixes reach more users through official releases and the work gets properly credited there.
 
