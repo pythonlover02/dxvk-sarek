@@ -6368,17 +6368,18 @@ namespace dxvk {
 
     auto samplerInfo = RemapStateSamplerShader(Sampler);
 
-    const uint32_t slot = computeResourceSlotId(
-      samplerInfo.first, DxsoBindingType::Image,
-      samplerInfo.second);
+    const uint32_t slotCount = m_d3d9Options.splitSamplerSlots ? SamplerSlotVariants : 1u;
 
     EmitCs([this,
-      cSlot = slot,
-      cKey  = key
+      cStage = samplerInfo.first,
+      cIndex = uint32_t(samplerInfo.second),
+      cCount = slotCount,
+      cKey   = key
     ] (DxvkContext* ctx) {
       auto pair = m_samplers.find(cKey);
       if (pair != m_samplers.end()) {
-        ctx->bindResourceSampler(cSlot, pair->second);
+        for (uint32_t i = 0; i < cCount; i++)
+          ctx->bindResourceSampler(computeSamplerSlotId(cStage, cIndex, i), pair->second);
         return;
       }
 
@@ -6419,7 +6420,9 @@ namespace dxvk {
         auto sampler = m_dxvkDevice->createSampler(info);
 
         m_samplers.insert(std::make_pair(cKey, sampler));
-        ctx->bindResourceSampler(cSlot, std::move(sampler));
+
+        for (uint32_t i = 0; i < cCount; i++)
+          ctx->bindResourceSampler(computeSamplerSlotId(cStage, cIndex, i), sampler);
 
         m_samplerCount++;
       }
@@ -6433,35 +6436,49 @@ namespace dxvk {
   void D3D9DeviceEx::BindTexture(DWORD StateSampler) {
     auto shaderSampler = RemapStateSamplerShader(StateSampler);
 
-    uint32_t slot = computeResourceSlotId(shaderSampler.first,
-      DxsoBindingType::Image, uint32_t(shaderSampler.second));
-
     const bool srgb =
       m_state.samplerStates[StateSampler][D3DSAMP_SRGBTEXTURE] & 0x1;
 
     D3D9CommonTexture* commonTex =
       GetCommonTexture(m_state.textures[StateSampler]);
 
+    // Split slots: the view goes to its type and shadow variant, the
+    // sampler's other slots are cleared.
+    uint32_t variant   = 0u;
+    uint32_t slotCount = 1u;
+
+    if (m_d3d9Options.splitSamplerSlots) {
+      variant   = uint32_t(commonTex->GetType() - D3DRTYPE_TEXTURE) + (commonTex->IsShadow() ? 3u : 0u);
+      slotCount = SamplerSlotVariants;
+    }
+
     EmitCs([
-      cSlot = slot,
+      cStage     = shaderSampler.first,
+      cIndex     = uint32_t(shaderSampler.second),
+      cVariant   = variant,
+      cCount     = slotCount,
       cImageView = commonTex->GetSampleView(srgb)
     ](DxvkContext* ctx) {
-      ctx->bindResourceView(cSlot, cImageView, nullptr);
+      for (uint32_t i = 0; i < cCount; i++) {
+        ctx->bindResourceView(computeSamplerSlotId(cStage, cIndex, i),
+          i == cVariant ? cImageView : nullptr, nullptr);
+      }
     });
   }
 
 
   void D3D9DeviceEx::UnbindTextures(uint32_t mask) {
     EmitCs([
-      cMask = mask
+      cMask  = mask,
+      cCount = m_d3d9Options.splitSamplerSlots ? SamplerSlotVariants : 1u
     ](DxvkContext* ctx) {
       for (uint32_t i : bit::BitMask(cMask)) {
         auto shaderSampler = RemapStateSamplerShader(i);
 
-        uint32_t slot = computeResourceSlotId(shaderSampler.first,
-          DxsoBindingType::Image, uint32_t(shaderSampler.second));
-
-        ctx->bindResourceView(slot, nullptr, nullptr);
+        for (uint32_t j = 0; j < cCount; j++) {
+          ctx->bindResourceView(computeSamplerSlotId(shaderSampler.first,
+            uint32_t(shaderSampler.second), j), nullptr, nullptr);
+        }
       }
     });
   }
@@ -7717,12 +7734,14 @@ namespace dxvk {
       SetStateTexture(i, nullptr);
 
     EmitCs([
-      cSize = m_state.textures.size()
+      cSize  = m_state.textures.size(),
+      cCount = m_d3d9Options.splitSamplerSlots ? SamplerSlotVariants : 1u
     ](DxvkContext* ctx) {
       for (uint32_t i = 0; i < cSize; i++) {
         auto samplerInfo = RemapStateSamplerShader(DWORD(i));
-        uint32_t slot = computeResourceSlotId(samplerInfo.first, DxsoBindingType::Image, uint32_t(samplerInfo.second));
-        ctx->bindResourceView(slot, nullptr, nullptr);
+
+        for (uint32_t j = 0; j < cCount; j++)
+          ctx->bindResourceView(computeSamplerSlotId(samplerInfo.first, uint32_t(samplerInfo.second), j), nullptr, nullptr);
       }
     });
 

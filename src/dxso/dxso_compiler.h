@@ -106,6 +106,8 @@ namespace dxvk {
     uint32_t typeId = 0;
 
     uint32_t imageTypeId = 0;
+
+    uint32_t boundConst = 0;
   };
 
   enum DxsoSamplerType : uint32_t {

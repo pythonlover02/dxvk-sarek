@@ -766,6 +766,10 @@ namespace dxvk {
       DxsoSamplerType type,
       bool            depth,
       bool            implicit) {
+      if (m_moduleInfo.options.splitSamplerSlots)
+        bindingId = computeSamplerSlotId(m_programInfo.type(), idx,
+          uint32_t(type) + (depth ? uint32_t(SamplerTypeCount) : 0u));
+
       // Setup our combines sampler.
       DxsoSamplerInfo& sampler = !depth
         ? m_samplers[idx].color[type]
@@ -815,6 +819,22 @@ namespace dxvk {
 
       m_module.decorateDescriptorSet(sampler.varId, 0);
       m_module.decorateBinding      (sampler.varId, bindingId);
+
+      if (m_moduleInfo.options.splitSamplerSlots) {
+        DxvkResourceSlot resource;
+        resource.slot   = bindingId;
+        resource.type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        resource.view   = viewType;
+        resource.access = VK_ACCESS_SHADER_READ_BIT;
+        m_resourceSlots.push_back(resource);
+
+        // Depth reads are only taken for bound samplers, so only colour
+        // variants need a bound constant.
+        if (!depth) {
+          sampler.boundConst = m_module.specConstBool(true);
+          m_module.decorateSpecId(sampler.boundConst, bindingId);
+        }
+      }
     };
 
     const uint32_t binding = computeResourceSlotId(m_programInfo.type(),
@@ -848,11 +868,18 @@ namespace dxvk {
     }
 
     DxsoSampler& sampler = m_samplers[idx];
-    sampler.boundConst = m_module.specConstBool(true);
     sampler.type = type;
+
+    if (m_moduleInfo.options.splitSamplerSlots)
+      return;
+
+    sampler.boundConst = m_module.specConstBool(true);
     m_module.decorateSpecId(sampler.boundConst, binding);
     m_module.setDebugName(sampler.boundConst,
       str::format("s", idx, "_bound").c_str());
+
+    for (auto& info : sampler.color)
+      info.boundConst = sampler.boundConst;
 
     // Store descriptor info for the shader interface
     DxvkResourceSlot resource;
@@ -3127,7 +3154,7 @@ void DxsoCompiler::emitControlFlowGenericLoop(
         m_module.opBranchConditional(isDepth, depthLabel, colorLabel);
 
         m_module.opLabel(colorLabel);
-        SampleImage(texcoordVar, sampler.color[samplerType], false, samplerType, sampler.boundConst);
+        SampleImage(texcoordVar, sampler.color[samplerType], false, samplerType, sampler.color[samplerType].boundConst);
         m_module.opBranch(endLabel);
 
         m_module.opLabel(depthLabel);
@@ -3138,7 +3165,7 @@ void DxsoCompiler::emitControlFlowGenericLoop(
         m_module.opLabel(endLabel);
       }
       else
-        SampleImage(texcoordVar, sampler.color[samplerType], false, samplerType, sampler.boundConst);
+        SampleImage(texcoordVar, sampler.color[samplerType], false, samplerType, sampler.color[samplerType].boundConst);
     };
 
     if (m_programInfo.majorVersion() >= 2 && !m_moduleInfo.options.forceSamplerTypeSpecConstants) {

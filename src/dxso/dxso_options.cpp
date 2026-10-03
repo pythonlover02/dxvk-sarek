@@ -41,6 +41,8 @@ namespace dxvk {
 
     forceSamplerTypeSpecConstants = options.forceSamplerTypeSpecConstants;
 
+    splitSamplerSlots = options.splitSamplerSlots;
+
     vertexFloatConstantBufferAsSSBO = pDevice->GetVertexConstantLayout().floatSize() > devInfo.core.properties.limits.maxUniformBufferRange;
 
     longMad = options.longMad;

@@ -108,6 +108,10 @@ namespace dxvk {
                             0, 0);
     applyTristate(this->generalHazards, config.getOption<Tristate>("d3d9.generalHazards", Tristate::Auto));
 
+    this->splitSamplerSlots = adapter != nullptr
+                           && adapter->matchesDriver(VK_DRIVER_ID_MOLTENVK);
+    applyTristate(this->splitSamplerSlots, config.getOption<Tristate>("d3d9.splitSamplerSlots", Tristate::Auto));
+
     std::string floatEmulation = Config::toLower(config.getOption<std::string>("d3d9.floatEmulation", "auto"));
     if (floatEmulation == "strict") {
       d3d9FloatEmulation = D3D9FloatEmulation::Strict;

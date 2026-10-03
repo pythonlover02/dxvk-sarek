@@ -17,6 +17,7 @@ namespace dxvk {
     invariantPosition = options->invariantPosition;
     drefScaling = options->drefScaling;
     enableClipDistance = device->features().core.features.shaderClipDistance;
+    splitSamplerSlots = options->splitSamplerSlots;
   }
 
   uint32_t DoFixedFunctionFog(SpirvModule& spvModule, const D3D9FogContext& fogCtx) {
@@ -2269,8 +2270,11 @@ namespace dxvk {
       std::string name = str::format("s", i);
       m_module.setDebugName(sampler.varId, name.c_str());
 
-      const uint32_t bindingId = computeResourceSlotId(DxsoProgramType::PixelShader,
-        DxsoBindingType::Image, i);
+      const uint32_t variant = m_options.splitSamplerSlots
+        ? uint32_t(type - D3DRTYPE_TEXTURE) + (m_fsKey.Stages[i].Contents.SampleDref ? 3u : 0u)
+        : 0u;
+
+      const uint32_t bindingId = computeSamplerSlotId(DxsoProgramType::PixelShader, i, variant);
 
       sampler.bound = m_module.specConstBool(true);
       m_module.decorateSpecId(sampler.bound, bindingId);

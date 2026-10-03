@@ -41,6 +41,7 @@ namespace dxvk {
     D3D9FixedFunctionOptions(const Rc<DxvkDevice>& device, const D3D9Options* options);
 
     bool    invariantPosition;
+    bool splitSamplerSlots;
     int32_t drefScaling;
     bool    enableClipDistance;
   };
