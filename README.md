@@ -314,13 +314,4 @@ The following environment variables can be used for debugging:
 
 DXVK requires threading support from your mingw-w64 build environment. If this is missing, you may see `error: 'std::cv_status' has not been declared` or similar threading-related errors.
 
-On Debian and Ubuntu this can be resolved by using the posix alternate, which supports threading. Choose the posix alternate from these commands:
-
-```
-update-alternatives --config x86_64-w64-mingw32-gcc
-update-alternatives --config x86_64-w64-mingw32-g++
-update-alternatives --config i686-w64-mingw32-gcc
-update-alternatives --config i686-w64-mingw32-g++
-```
-
-For non-Debian-based distros, make sure your mingw-w64-gcc cross compiler has `--enable-threads=posix` enabled during configure. If your distro ships its mingw-w64-gcc binary with `--enable-threads=win32`, you may have to recompile locally or open a bug at your distro's bug tracker to ask for it.
+Make sure your mingw-w64-gcc cross compiler has `--enable-threads=posix` enabled during configure. If your distro ships its mingw-w64-gcc binary with `--enable-threads=win32`, you may have to recompile locally or open a bug at your distro's bug tracker to ask for it.
